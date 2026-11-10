@@ -1,0 +1,6 @@
+interface:
+  display_name: "Claude Model Selection"
+  short_description: "Pick a Claude model and effort level for a task"
+  default_prompt: "Use $claude-model-selection to choose the Claude model and effort level for this task, with an escalation plan and any compatibility notes."
+policy:
+  allow_implicit_invocation: true
