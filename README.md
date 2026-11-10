@@ -8,6 +8,7 @@ Reusable skills for AI agents, maintained by [Notorious D.E.V.](https://github.c
 | --- | --- | --- |
 | [astra-sol-delegation](skills/astra-sol-delegation/SKILL.md) | Astra delegates implementation and exploration to Sol, chooses reasoning effort, and reviews the result. | Codex with GPT-6 Astra and GPT-5.6 Sol access |
 | [advisor-review](skills/advisor-review/SKILL.md) | The session model does the work; when it opens a pull request, two stronger models review the branch in turn and the session fixes what they find. | Claude Code or Codex, with both CLIs installed and access to Fable 5.2 and GPT-6 Astra |
+| [claude-model-selection](skills/claude-model-selection/SKILL.md) | Picks the Claude model and effort level for a task, subagent, or API route, plans escalation, estimates cost, and flags API breaks before a model switch. | Claude Code, Codex, or any harness that calls Claude |
 
 ## Install
 
@@ -20,6 +21,8 @@ $skill-installer install the astra-sol-delegation skill from https://github.com/
 Or download this repository and copy `skills/astra-sol-delegation/` into your user skill directory, `~/.agents/skills/`. For a shared project installation, copy it into `.agents/skills/` in that repository. Codex also supports the `~/.codex/skills/` location used by its bundled installer. Choose one location to avoid duplicate discovery. Keep the included `LICENSE.txt` with the skill.
 
 Codex detects newly installed skills automatically. If it does not appear, restart Codex. See the [official skills documentation](https://learn.chatgpt.com/docs/build-skills).
+
+For Claude Code, copy the skill folder into `~/.claude/skills/` (every project) or `.claude/skills/` in a repository (that project only).
 
 ## Astra → Sol delegation
 
@@ -97,6 +100,28 @@ Both reviewers are told not to change, commit, push or deploy anything, but that
 - A session that is allowed to reach the network, start the other CLI, and write to `~/.advisor-review/`. In a sandboxed session the agent asks for approval first.
 
 Each review counts against your Claude or Codex usage. Installing the skill does not grant model access or change your selected model. If a reviewer cannot be run, the agent says so in its report and does not substitute another model.
+
+## Claude model selection
+
+Use it in Claude Code, Codex, or any agent that picks Claude models for its own work or for an app it is building. Ask normally or invoke it explicitly:
+
+```text
+Use $claude-model-selection to pick the Claude model and effort for this
+pipeline, with an escalation plan and a rough cost per day.
+```
+
+In Claude Code it activates on its own for questions like "which model should I use for X", "is Haiku enough", or "make my subagents cheaper".
+
+### What it covers
+
+1. A starting model and effort for common task shapes. The default is Opus 5.5 at `medium`, stepping down to Sonnet 5.5 or Haiku 5.5 or up to Fable 5.2 for specific reasons.
+2. An escalation order: give the model a way to check its own work, then raise effort one level, then move up one model.
+3. Cost per finished task, including caching, the Batch API, and Haiku's long-prompt price tier.
+4. Mixing models: cheap subagents, switching models without losing the cache, and fan-out to parallel workers.
+5. API changes that break when you switch models: always-on thinking, forced `tool_choice`, preserved thinking, and sampling parameters.
+6. Exact config for Claude Code (subagent frontmatter, `--model`, `--effort`), the Messages API, and handing tasks from Codex to `claude -p`.
+
+The lineup and prices are as of 2026-11-09. The skill tells the agent to trust a live model list over its own tables when they differ. It is distilled from Anthropic's [Which Claude model should you build with?](https://claude.dev/blog/which-claude-model-should-you-build-with/) and the Claude API docs.
 
 ## Skill format
 
