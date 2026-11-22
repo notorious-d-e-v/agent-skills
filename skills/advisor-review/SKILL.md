@@ -22,11 +22,11 @@ Pull requests only.
 - Run it when this session opens a pull request, or pushes new work to an open pull request, whoever opened it.
 - Pushing fixes from these loops does not start a new run. A new run starts only for new work pushed after both loops have ended.
 - Run it when the user asks for it on an existing pull request or branch.
-- Do not run it for anything else: answers, research, documents, local changes that are not going into a pull request, or commits pushed without one. For those, finish the task as usual.
+- Do not run it for anything else: answers, research, documents or local changes that are not going into a pull request, or commits pushed without one. For those, finish the task as usual.
 - Skip it when the user says to, and for a pull request that only fixes a typo or bumps a version. Say that you skipped it.
 - Never run it from inside a review. If you were launched by one of this skill's scripts, you are the reviewer: review, and do not start reviews of your own. The scripts refuse to run there.
 
-Review the finished, verified branch against the pull request's base. Run the loops just before opening the pull request or right after; either way every fix goes to the pull request's own branch, and the pull request is not reported as ready until both loops have ended. Never merge.
+Run the loops once the pull request is open. Review the finished, verified branch against the pull request's base; for a branch the user names that has no pull request, use the base they give, or the repository's default branch. Every fix goes to that same branch, and the pull request is not reported as ready until both loops have ended. Never merge.
 
 ## Effort
 
