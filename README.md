@@ -7,6 +7,7 @@ Reusable skills for AI agents, maintained by [Notorious D.E.V.](https://github.c
 | Skill | Purpose | Environment |
 | --- | --- | --- |
 | [astra-sol-delegation](skills/astra-sol-delegation/SKILL.md) | Astra delegates implementation and exploration to Sol, chooses reasoning effort, and reviews the result. | Codex with GPT-6 Astra and GPT-5.6 Sol access |
+| [advisor-review](skills/advisor-review/SKILL.md) | The session model does the work, then two stronger models review it in turn and the session fixes what they find. | Claude Code or Codex, with both CLIs installed and access to Fable 5.2 and GPT-6 Astra |
 
 ## Install
 
@@ -47,6 +48,56 @@ Native Codex subagents are preferred. A Codex CLI fallback pins the Sol model an
 
 Installing the skill adds workflow instructions. It does not grant model access, change your selected model, or enable tools. If Sol is unavailable, Astra reports the limitation and continues directly when feasible.
 
+## Advisor review
+
+The session's own model does all of the work. When the work is finished, two stronger models review it, one after the other, and the session fixes what they find before it reports back.
+
+| Harness | Does the work | First reviewer | Second reviewer |
+| --- | --- | --- | --- |
+| Claude Code | The session model, for example Opus 5.5 | Fable 5.2 | GPT-6 Astra |
+| Codex | The session model, for example GPT-5.6 Sol | GPT-6 Astra | Fable 5.2 |
+
+Copy `skills/advisor-review/` into `~/.claude/skills/` for Claude Code and into your Codex skill directory (`~/.agents/skills/` or `~/.codex/skills/`) for Codex. Keep the whole folder together: the agent runs the scripts from the `scripts/` folder beside the `SKILL.md` it loaded.
+
+The skill can start on its own at the end of a task that produced code, a pull request, a config change, a document or an analysis. You can also ask for it. In Codex:
+
+```text
+Use $advisor-review on the finished work.
+```
+
+In Claude Code, type `/advisor-review` or say "run advisor-review on this".
+
+### How it works
+
+1. The agent writes a short brief: the task, the result and where it is, how to check it, and what was left out on purpose.
+2. First reviewer loop: a fresh review, triage, fixes, then another fresh review of the work as it now stands, until a round has nothing to fix.
+3. Second reviewer loop: the same with the other model family.
+4. The final report says how many rounds each reviewer ran and what was fixed, rejected and deferred.
+
+Every review is a new session that starts from the brief and the working directory. It gets no transcript, no saved memory and no earlier findings. Each CLI still adds its usual context, such as the signed-in account and the state of the repository. The agent picks the review effort per task: `medium` for small low-risk results, `high` by default, `xhigh` for security-sensitive or money-moving work.
+
+A loop stops at 5 rounds per reviewer. It also stops early and asks you when a fixed finding keeps coming back, when fixes keep introducing new defects, when a finding asks for a redesign, or when findings keep landing outside what the task changed.
+
+### What the scripts run
+
+Reviewers can run your code and tests, so neither is sandboxed.
+
+- `scripts/fable-review.sh` runs `claude -p --model claude-fable-5-2` with Read, Grep, Glob and Bash allowed without prompts. It loads no file-edit tools, no skills, no MCP servers, no user settings and no auto-memory, and it saves no session.
+- `scripts/astra-review.sh` runs `codex exec -m gpt-6-astra` with `--dangerously-bypass-approvals-and-sandbox` and `--skip-git-repo-check`. It does not load your `config.toml` and it saves no session. Codex may still show the reviewer your installed skills, so the reviewer rules and a guard in both scripts stop a reviewer from starting a review of its own.
+
+Both refuse to start if `reviewer-rules.md` is missing from the `scripts/` folder, and both work when called through a symlink or without the executable bit (`bash fable-review.sh ...`). Set `CLAUDE_BIN` or `CODEX_BIN` to use a CLI that is not on your `PATH`.
+
+Both reviewers are told not to change, commit, push or deploy anything, but that is an instruction, not a restriction. Use the skill only where you would let an agent run commands unattended, and read the two scripts first.
+
+### Requirements
+
+- The Claude Code CLI and the Codex CLI on the same machine, both signed in. Either harness needs both.
+- Access to Fable 5.2 in Claude Code and to `gpt-6-astra` in Codex.
+- `bash`.
+- A session that is allowed to reach the network, start the other CLI, and write to `~/.advisor-review/`. In a sandboxed session the agent asks for approval first.
+
+Each review counts against your Claude or Codex usage. Installing the skill does not grant model access or change your selected model. If a reviewer cannot be run, the agent says so in its report and does not substitute another model.
+
 ## Skill format
 
 ```text
@@ -57,7 +108,7 @@ skills/astra-sol-delegation/
     └── openai.yaml   # Optional Codex display and invocation metadata
 ```
 
-`SKILL.md` contains the complete workflow; no runtime dependencies or helper scripts are required by the skill itself. The package follows the `skills/<name>/SKILL.md` layout used by [steipete/agent-scripts](https://github.com/steipete/agent-scripts).
+For `astra-sol-delegation`, `SKILL.md` contains the complete workflow; no runtime dependencies or helper scripts are required. A skill that needs them keeps them in its own folder, as `advisor-review` does with `scripts/`. The package follows the `skills/<name>/SKILL.md` layout used by [steipete/agent-scripts](https://github.com/steipete/agent-scripts).
 
 ## Add a skill
 
