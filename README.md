@@ -65,7 +65,7 @@ The skill starts on its own when the session opens a pull request or pushes new 
 Use $advisor-review on this pull request.
 ```
 
-In Claude Code, type `/advisor-review` or say "run advisor-review on this".
+In Claude Code, type `/advisor-review` or say "run advisor-review on this pull request".
 
 ### How it works
 
