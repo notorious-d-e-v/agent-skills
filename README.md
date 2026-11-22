@@ -7,7 +7,7 @@ Reusable skills for AI agents, maintained by [Notorious D.E.V.](https://github.c
 | Skill | Purpose | Environment |
 | --- | --- | --- |
 | [astra-sol-delegation](skills/astra-sol-delegation/SKILL.md) | Astra delegates implementation and exploration to Sol, chooses reasoning effort, and reviews the result. | Codex with GPT-6 Astra and GPT-5.6 Sol access |
-| [advisor-review](skills/advisor-review/SKILL.md) | The session model does the work, then two stronger models review it in turn and the session fixes what they find. | Claude Code or Codex, with both CLIs installed and access to Fable 5.2 and GPT-6 Astra |
+| [advisor-review](skills/advisor-review/SKILL.md) | The session model does the work; when it opens a pull request, two stronger models review the branch in turn and the session fixes what they find. | Claude Code or Codex, with both CLIs installed and access to Fable 5.2 and GPT-6 Astra |
 
 ## Install
 
@@ -50,7 +50,7 @@ Installing the skill adds workflow instructions. It does not grant model access,
 
 ## Advisor review
 
-The session's own model does all of the work. When the work is finished, two stronger models review it, one after the other, and the session fixes what they find before it reports back.
+The session's own model does all of the work. When that work goes into a pull request, two stronger models review the branch, one after the other, and the session fixes what they find before it reports the pull request as ready. It runs for pull requests only, not for every task.
 
 | Harness | Does the work | First reviewer | Second reviewer |
 | --- | --- | --- | --- |
@@ -59,22 +59,22 @@ The session's own model does all of the work. When the work is finished, two str
 
 Copy `skills/advisor-review/` into `~/.claude/skills/` for Claude Code and into your Codex skill directory (`~/.agents/skills/` or `~/.codex/skills/`) for Codex. Keep the whole folder together: the agent runs the scripts from the `scripts/` folder beside the `SKILL.md` it loaded.
 
-The skill can start on its own at the end of a task that produced code, a pull request, a config change, a document or an analysis. You can also ask for it. In Codex:
+The skill starts on its own when the session opens a pull request or pushes new work to an open pull request. It stays out of tasks that do not end in a pull request, and it skips pull requests that only fix a typo or bump a version. You can also ask for it on an existing pull request or branch. In Codex:
 
 ```text
-Use $advisor-review on the finished work.
+Use $advisor-review on this pull request.
 ```
 
 In Claude Code, type `/advisor-review` or say "run advisor-review on this".
 
 ### How it works
 
-1. The agent writes a short brief: the task, the result and where it is, how to check it, and what was left out on purpose.
+1. The agent writes a short brief: the task, the branch and its base, how to check it, and what was left out on purpose.
 2. First reviewer loop: a fresh review, triage, fixes, then another fresh review of the work as it now stands, until a round has nothing to fix.
 3. Second reviewer loop: the same with the other model family.
 4. The final report says how many rounds each reviewer ran and what was fixed, rejected and deferred.
 
-Every review is a new session that starts from the brief and the working directory. It gets no transcript, no saved memory and no earlier findings. Each CLI still adds its usual context, such as the signed-in account and the state of the repository. The agent picks the review effort per task: `medium` for small low-risk results, `high` by default, `xhigh` for security-sensitive or money-moving work.
+Every review is a new session that starts from the brief and the working directory. It gets no transcript, no saved memory and no earlier findings. Each CLI still adds its usual context, such as the signed-in account and the state of the repository. The agent picks the review effort per pull request: `medium` for small low-risk ones, `high` by default, `xhigh` for security-sensitive or money-moving work.
 
 A loop stops at 5 rounds per reviewer. It also stops early and asks you when a fixed finding keeps coming back, when fixes keep introducing new defects, when a finding asks for a redesign, or when findings keep landing outside what the task changed.
 

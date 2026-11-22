@@ -1,12 +1,12 @@
 ---
 name: advisor-review
-description: "At the end of a task, before reporting it done, have two stronger models review the result in turn, fixing and re-reviewing with each until it comes back clean (up to 5 rounds each): first the stronger model of your own family, then the other family's. In Claude Code the reviewers are Fable 5.2 then GPT-6 Astra; in Codex they are GPT-6 Astra then Fable 5.2. Use for every task that produced a deliverable (code, a PR, a config change, a document, an analysis). Skip for questions, lookups, conversation and single trivial edits, and never use it when you are the reviewer."
+description: "For pull requests only. When this session opens a pull request or pushes new work to an open pull request, have two stronger models review the branch in turn, fixing and re-reviewing with each until it comes back clean (up to 5 rounds each), before reporting the pull request as ready: first the stronger model of your own family, then the other family's. In Claude Code the reviewers are Fable 5.2 then GPT-6 Astra; in Codex they are GPT-6 Astra then Fable 5.2. Outside that, use it only when the user asks for it on a pull request or branch. Skip pull requests that only fix a typo or bump a version, and never use it when you are the reviewer."
 license: "MIT; see LICENSE.txt"
 ---
 
 # Advisor Review
 
-The session's own model is the executor and does all of the work: for example Opus 5.5 in Claude Code or GPT-5.6 Sol in Codex. When the work is finished, two stronger models review it, one after the other. With each reviewer the executor loops: review, fix, fresh review, until a round comes back clean. No delegation: the reviewers only review.
+The session's own model is the executor and does all of the work: for example Opus 5.5 in Claude Code or GPT-5.6 Sol in Codex. When that work goes into a pull request, two stronger models review the pull request's branch, one after the other. With each reviewer the executor loops: review, fix, fresh review, until a round comes back clean. No delegation: the reviewers only review.
 
 | Harness | Executor | First reviewer | Second reviewer |
 | --- | --- | --- | --- |
@@ -17,12 +17,16 @@ Whatever model the session runs on, the reviewers and their order stay the same 
 
 ## When
 
-Run it when the task's work is complete and you have verified it yourself (tests run, output checked), before the final report to the user.
+Pull requests only.
 
-- Run for anything that leaves a deliverable: code changes, a pull request, configuration, a document, a plan, an analysis others will rely on.
-- Skip for questions, lookups, explanations, conversation, and single trivial edits. Skip when the user says to skip it.
+- Run it when this session opens a pull request, or pushes new work to an open pull request, whoever opened it.
+- Pushing fixes from these loops does not start a new run. A new run starts only for new work pushed after both loops have ended.
+- Run it when the user asks for it on an existing pull request or branch.
+- Do not run it for anything else: answers, research, documents, local changes that are not going into a pull request, or commits pushed without one. For those, finish the task as usual.
+- Skip it when the user says to, and for a pull request that only fixes a typo or bumps a version. Say that you skipped it.
 - Never run it from inside a review. If you were launched by one of this skill's scripts, you are the reviewer: review, and do not start reviews of your own. The scripts refuse to run there.
-- If the task ends in a pull request, run the reviews on the finished branch. Fixes go to that PR's own branch. Never merge.
+
+Review the finished, verified branch against the pull request's base. Run the loops just before opening the pull request or right after; either way every fix goes to the pull request's own branch, and the pull request is not reported as ready until both loops have ended. Never merge.
 
 ## Effort
 
@@ -30,8 +34,8 @@ Pick the level by what a miss would cost. Use the same rubric for both reviewers
 
 | Effort | Use for |
 | --- | --- |
-| `medium` | Small, low-risk, easily checked results: a doc, a config tweak, a single-file change with tests. |
-| `high` | Default. Multi-file changes, features, bug fixes with unclear blast radius, analysis others will act on. |
+| `medium` | Small, low-risk pull requests that are easy to check: docs, a config tweak, a single-file change with tests. |
+| `high` | Default. Multi-file changes, features, bug fixes with unclear blast radius. |
 | `xhigh` | Security-sensitive or money-moving logic, concurrency, data migrations, production rollouts, public or upstream pull requests, large diffs. |
 
 `low` is too shallow for a review and `max` is only for when the user asks. State the chosen effort when you launch each review.
@@ -42,7 +46,7 @@ Write one brief file and give the same file to both reviewers, every round. Each
 
 ```
 Task: <what the user asked for, in their terms, with the acceptance criteria>
-Result: <what you produced and where: paths, branch and base (`git diff <base>...HEAD`), PR number, or the document>
+Result: <the branch and its base (`git diff <base>...HEAD`), and the pull request number once it exists>
 How to check: <the exact test, lint, build or run commands; where sample data is>
 Out of scope: <what was deliberately not done, so it is not reported as missing>
 ```
@@ -52,7 +56,7 @@ Out of scope: <what was deliberately not done, so it is not reported as missing>
 - Do not add earlier findings, or your verdicts on them, to any later review: not to the next round and not to the second reviewer. Every review gets the same brief and the work as it now stands. Independence is the point; a reviewer told what to think agrees. Let a rejected finding be raised again and resolve it against the ledger.
 - Update the brief only when the facts in it change (a new commit range, a renamed file), never to steer the review.
 
-Keep everything together, outside the repository, in `~/.advisor-review/<repo-or-task>__<branch-or-date>/`: `brief.md`, one file per review (`fable-r1.md`, `fable-r2.md`, `astra-r1.md`, ...) and `ledger.md`. The ledger is what lets a new session pick the loop back up: read it first when resuming.
+Keep everything together, outside the repository, in `~/.advisor-review/<repo>__<branch>/`: `brief.md`, one file per review (`fable-r1.md`, `fable-r2.md`, `astra-r1.md`, ...) and `ledger.md`. The ledger is what lets a new session pick the loop back up: read it first when resuming.
 
 ## Running a review
 
@@ -97,7 +101,7 @@ status: open | fixed-in-R<n> | closed
 
 ## Sequence
 
-1. Finish and verify the work. Write the brief.
+1. Finish and verify the branch. Write the brief.
 2. **First reviewer loop.** Review, triage, fix, re-run the proof, then a fresh review of the work as it now stands. Repeat until this reviewer's loop ends (below).
 3. **Second reviewer loop.** The same loop with the other reviewer, on the work as the first loop left it.
 4. Report.
@@ -119,7 +123,7 @@ Stop and hand back to the user, with the ledger, instead of spending more:
 - **Design demand:** a finding asks for a different design rather than a fix.
 - **Scope growth:** findings keep landing outside what the task changed (older code, neighbouring features). Defer those to a follow-up rather than growing this change; prefer cutting scope over adding guard code.
 
-Say in one line when each round starts: reviewer, round number, effort. After each round note the findings by verdict and, for code, the size of the change so far (lines added and removed).
+Say in one line when each round starts: reviewer, round number, effort. After each round note the findings by verdict and the size of the pull request's diff so far (lines added and removed).
 
 ## Final report
 
